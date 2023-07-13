@@ -23,9 +23,19 @@ const REQ_NOP: u8 = 0x36;
 /* Memory addresses */
 // This is on a TV box based on S905X4
 const FB_ADDR: u32 = 0x7f80_0000;
+
 // from https://dn.odroid.com/S905/DataSheet/S905_Public_Datasheet_V1.1.4.pdf
-const SYS_AHB_BASE: u32 = 0xC800_0000;
-const CHIP_ID_ADDR: u32 = SYS_AHB_BASE + 0x0001_3c24;
+// const SYS_AHB_BASE: u32 = 0xC800_0000;
+// FIXME: Not working on S905X, taken from pyamlboot PROTOCOL.md
+// also found in khadas update tool
+// const CHIP_ID_ADDR_X: u32 = SYS_AHB_BASE + 0x0001_3c24;
+
+// from khadas tools / update (objdump is your friend :))
+const CHIP_ID_ADDR_S905X: u32 = 0xd900_d400;
+
+// these are also taken from khadas update tool
+// const X_ADDR3: u32 = 0xfffc_d400;
+// const X_ADDR4: u32 = 0xffff_fc84;
 
 fn int_to_bool_str(v: u8) -> &'static str {
     match v {
@@ -74,9 +84,10 @@ fn info(handle: &Handle, timeout: Duration) {
         }
         Err(e) => println!("chip_id err: {e:?}"),
     }
-    // FIXME: broken, should work though? See pyamlboot PROTOCOL.md
-    if false {
-        read_mem(handle, timeout, CHIP_ID_ADDR, 12).unwrap();
+    let is_vim1 = true; // Khadas VIM1 board
+    if is_vim1 {
+        println!("Chip ID:");
+        read_mem(handle, timeout, CHIP_ID_ADDR_S905X, 12).unwrap();
     }
 }
 
@@ -165,6 +176,7 @@ fn main() {
                 Command::Info => {
                     info(&handle, timeout);
                     // CPU power states, p47
+                    println!("Power states (?):");
                     read_mem(&handle, timeout, 0xc810_00e0, 8).unwrap();
                 }
                 Command::ReadMem => {
