@@ -66,7 +66,7 @@ fn nop(handle: &Handle, timeout: Duration) {
 }
 
 fn info(handle: &Handle, timeout: Duration) {
-    println!("read information");
+    println!("Read chip information\n");
     let mut buf: [u8; 8] = [0; 8];
     match handle.read_control(
         REQ_TYPE_AMLIN,
@@ -77,10 +77,11 @@ fn info(handle: &Handle, timeout: Duration) {
         timeout,
     ) {
         Ok(_) => {
-            println!("ROM version:   {}.{}", buf[0], buf[1]);
-            println!("Stage version: {}.{}", buf[2], buf[3]);
-            println!("Need password: {}", int_to_bool_str(buf[4]));
-            println!("Password OK:   {}", int_to_bool_str(buf[5]));
+            println!("  ROM version:   {}.{}", buf[0], buf[1]);
+            println!("  Stage version: {}.{}", buf[2], buf[3]);
+            println!("  Need password: {}", int_to_bool_str(buf[4]));
+            println!("  Password OK:   {}", int_to_bool_str(buf[5]));
+            println!();
         }
         Err(e) => println!("chip_id err: {e:?}"),
     }
@@ -145,50 +146,62 @@ fn main() {
     let cmd = Command::Info;
 
     println!("Searching for Amlogic USB devices...");
-    for device in rusb::devices().unwrap().iter() {
-        let device_desc = device.device_descriptor().unwrap();
+    let dev = rusb::devices()
+        .unwrap()
+        .iter()
+        .find(|dev| {
+            let des = dev.device_descriptor().unwrap();
+            let vid = des.vendor_id();
+            let pid = des.product_id();
 
-        let vid = device_desc.vendor_id();
-        let pid = device_desc.product_id();
+            vid == USB_VID_AMLOGIC && (pid == USB_PID_S905X3 || pid == USB_PID_S905X4)
+        })
+        .expect("Cannot find Amlogic USB device");
+    let des = dev.device_descriptor().unwrap();
+    let vid = des.vendor_id();
+    let pid = des.product_id();
 
-        if vid == USB_VID_AMLOGIC && (pid == USB_PID_S905X3 || pid == USB_PID_S905X4) {
-            let s_type = if pid == USB_PID_S905X3 {
-                "S905X, S905X2 or S905X3"
-            } else {
-                "S905X4"
-            };
-            println!(
-                "Found {vid:04x}:{pid:04x} ({s_type}) on bus {:03}, device {:03}",
-                device.bus_number(),
-                device.address(),
-            );
+    let s_type = if pid == USB_PID_S905X3 {
+        "S905X, S905X2 or S905X3"
+    } else {
+        "S905X4"
+    };
+    println!(
+        "Found {vid:04x}:{pid:04x} ({s_type}) on bus {:03}, device {:03}",
+        dev.bus_number(),
+        dev.address(),
+    );
 
-            // TODO: Not sure if this is sensible, or whether to use different
-            // timeouts per command...
-            let timeout = Duration::from_millis(2500);
-            let handle = device.open().expect("Error opening USB device {e:?}");
+    // TODO: Not sure if this is sensible, or whether to use different
+    // timeouts per command...
+    let timeout = Duration::from_millis(2500);
+    let handle = dev.open().expect("Error opening USB device {e:?}");
 
-            // TODO: write_mem, toggle some GPIO / LED on VIM1
-            match cmd {
-                Command::Nop => {
-                    nop(&handle, timeout);
-                }
-                Command::Info => {
-                    info(&handle, timeout);
-                    // CPU power states, p47
-                    println!("Power states (?):");
-                    read_mem(&handle, timeout, 0xc810_00e0, 8).unwrap();
-                }
-                Command::ReadMem => {
-                    read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
-                }
-                Command::Password => {
-                    password(&handle, timeout);
-                }
-                Command::Fastboot => {
-                    tpl_cmd(&handle, timeout, "fastboot");
-                }
-            }
+    if let Ok(p) = handle.read_product_string_ascii(&des) {
+        println!("Product string: {p}");
+    }
+
+    // TODO: write_mem, toggle some GPIO / LED on VIM1
+    match cmd {
+        Command::Nop => {
+            nop(&handle, timeout);
+        }
+        Command::Info => {
+            println!("\n=======\n");
+            info(&handle, timeout);
+            println!();
+            // CPU power states, p47
+            println!("Power states (?):");
+            read_mem(&handle, timeout, 0xc810_00e0, 8).unwrap();
+        }
+        Command::ReadMem => {
+            read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
+        }
+        Command::Password => {
+            password(&handle, timeout);
+        }
+        Command::Fastboot => {
+            tpl_cmd(&handle, timeout, "fastboot");
         }
     }
 }
