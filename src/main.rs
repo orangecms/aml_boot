@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 const USB_VID_AMLOGIC: u16 = 0x1b8e;
 const USB_PID_S905X3: u16 = 0xc003;
@@ -12,6 +12,7 @@ const REQ_TYPE_AMLIN: u8 = 0xc0;
 const REQ_TYPE_AMLOUT: u8 = 0x40;
 
 /* Actual commands */
+const REQ_WRITE_MEM: u8 = 0x01;
 const REQ_READ_MEM: u8 = 0x02;
 
 const REQ_IDENTIFY_HOST: u8 = 0x20;
@@ -37,6 +38,10 @@ const CHIP_ID_ADDR_S905X: u32 = 0xd900_d400;
 // const X_ADDR3: u32 = 0xfffc_d400;
 // const X_ADDR4: u32 = 0xffff_fc84;
 
+// GPIO AO 0-9,
+const GPIO_AO_BASE: u32 = 0xC810_0000;
+const GPIO_AO_OUT: u32 = GPIO_AO_BASE + 0x0024;
+
 fn int_to_bool_str(v: u8) -> &'static str {
     match v {
         1 => "yes",
@@ -48,6 +53,7 @@ enum Command {
     Nop,
     Info,
     ReadMem,
+    WriteMem,
     Password,
     Fastboot,
 }
@@ -117,6 +123,28 @@ fn read_mem(handle: &Handle, timeout: Duration, addr: u32, size: u8) -> Result<(
     Ok(())
 }
 
+fn write_mem(
+    handle: &Handle,
+    timeout: Duration,
+    addr: u32,
+    buf: &[u8],
+) -> Result<(), &'static str> {
+    let addr_l = addr as u16;
+    let addr_h = (addr >> 16) as u16;
+    println!("write to memory @{addr_h:04x}{addr_l:04x}");
+    if buf.len() > 64 {
+        return Err("Memory write size is 64 max");
+    }
+
+    match handle.write_control(REQ_TYPE_AMLOUT, REQ_WRITE_MEM, addr_h, addr_l, buf, timeout) {
+        Ok(n) => {
+            println!("write_mem success, {n} bytes");
+        }
+        Err(e) => println!("write_mem err: {e:?}"),
+    }
+    Ok(())
+}
+
 // Just for reference; untested as per pyamlboot
 fn password(handle: &Handle, timeout: Duration) {
     println!("password");
@@ -140,6 +168,26 @@ fn tpl_cmd(handle: &Handle, timeout: Duration, cmd: &str) {
         timeout,
     );
     println!("{res:?}");
+}
+
+fn vim1_blink(handle: &Handle, timeout: Duration) {
+    // On Khadas VIM1, GPIO AO 9 supposedly is the SYS LED.
+    // This seems to be a bit different? It lets the white LED blink.
+    let addr = GPIO_AO_OUT;
+    // read_mem(handle, timeout, addr, 4).unwrap();
+    // [0xff, 0x3f, 0xff, 0xbf];
+    // 9-0: output enable
+    // 25-16: OUT
+    println!("Blink the SYS LED on Khadas VIM1");
+    let dur = Duration::from_millis(300);
+    for _ in 0..4 {
+        let buf: [u8; 4] = [0xff, 0x3d, 0xff, 0xbd];
+        write_mem(handle, timeout, addr, &buf).unwrap();
+        sleep(dur);
+        let buf: [u8; 4] = [0xff, 0x3f, 0xff, 0xbf];
+        write_mem(handle, timeout, addr, &buf).unwrap();
+        sleep(dur);
+    }
 }
 
 fn main() {
@@ -196,6 +244,9 @@ fn main() {
         }
         Command::ReadMem => {
             read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
+        }
+        Command::WriteMem => {
+            vim1_blink(&handle, timeout);
         }
         Command::Password => {
             password(&handle, timeout);
