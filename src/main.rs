@@ -34,14 +34,6 @@ const FB_ADDR: u32 = 0x7f80_0000;
 // from khadas tools / update (objdump is your friend :))
 const CHIP_ID_ADDR_S905X: u32 = 0xd900_d400;
 
-// these are also taken from khadas update tool
-// const X_ADDR3: u32 = 0xfffc_d400;
-// const X_ADDR4: u32 = 0xffff_fc84;
-
-// GPIO AO 0-9,
-const GPIO_AO_BASE: u32 = 0xC810_0000;
-const GPIO_AO_OUT: u32 = GPIO_AO_BASE + 0x0024;
-
 fn int_to_bool_str(v: u8) -> &'static str {
     match v {
         1 => "yes",
@@ -54,6 +46,8 @@ enum Command {
     Info,
     ReadMem,
     WriteMem,
+    Vim1_Blink,
+    LC_A311D_CC_Blink,
     Password,
     Fastboot,
 }
@@ -146,11 +140,10 @@ fn write_mem(
 }
 
 // Just for reference; untested as per pyamlboot
-fn password(handle: &Handle, timeout: Duration) {
-    println!("password");
-    // password size is 64 bytes
-    let buf: [u8; 64] = [0; 64];
-    let r = handle.write_control(REQ_TYPE_AMLOUT, REQ_PASSWORD, 0x0, 0x0, &buf, timeout);
+// Password size is 64 bytes
+fn password(handle: &Handle, timeout: Duration, buf: &[u8; 64]) {
+    println!("password: {buf:02x?}");
+    let r = handle.write_control(REQ_TYPE_AMLOUT, REQ_PASSWORD, 0x0, 0x0, buf, timeout);
     println!("{r:?}");
 }
 
@@ -169,6 +162,36 @@ fn tpl_cmd(handle: &Handle, timeout: Duration, cmd: &str) {
     );
     println!("{res:?}");
 }
+
+// NOTE: not yet working, just an attempt
+fn password_test(handle: &Handle, timeout: Duration) {
+    nop(handle, timeout);
+
+    let pw: [u8; 64] = [0xff; 64];
+    password(handle, timeout, &pw);
+
+    /*
+    let size = 16;
+    let mut buf = vec![0; size as usize];
+    for cmd in 0xa0..=0xff {
+        println!("Try command {cmd:02x}");
+        match handle.read_control(REQ_TYPE_AMLIN, cmd, 0, 0, &mut buf, timeout) {
+            Ok(n) => {
+                println!("res ({n}): {buf:02x?}");
+            }
+            Err(e) => println!("err: {e:?}"),
+        }
+    }
+    */
+}
+
+// these are also taken from khadas update tool
+// const X_ADDR3: u32 = 0xfffc_d400;
+// const X_ADDR4: u32 = 0xffff_fc84;
+
+// GPIO AO 0-9,
+const GPIO_AO_BASE: u32 = 0xC810_0000;
+const GPIO_AO_OUT: u32 = GPIO_AO_BASE + 0x0024;
 
 fn vim1_blink(handle: &Handle, timeout: Duration) {
     // On Khadas VIM1, GPIO AO 9 supposedly is the SYS LED.
@@ -190,8 +213,45 @@ fn vim1_blink(handle: &Handle, timeout: Duration) {
     }
 }
 
+// from AML A311D manual
+const PERIPHS_MUX_BASE: usize = 0xff63_4400;
+const AO_RTI_PIN_MUX_BASE: usize = 0xff80_0000;
+
+const PREG_PAD_GPIO2_O: usize = PERIPHS_MUX_BASE + 4 * 0x0017;
+const PREG_PAD_GPIO2_EN: usize = PERIPHS_MUX_BASE + 4 * 0x0016;
+
+// see Libre Computer AML-A311D-CC V0.2 schematics
+const LED1: u8 = 1 << 3;
+const LED2: u8 = 1 << 6;
+const LED3: u8 = 1 << 7;
+
+// NOTE: This is all active low.
+fn lc_a311d_cc_blink(handle: &Handle, timeout: Duration) {
+    let addr = PREG_PAD_GPIO2_EN as u32;
+    let buf: [u8; 4] = [0b0011_0111, 0xff, 0xff, 0xff];
+    write_mem(handle, timeout, addr, &buf).unwrap();
+    println!("Blink the SYS LED on Khadas VIM1");
+    let addr = PREG_PAD_GPIO2_O as u32;
+    let dur = Duration::from_millis(300);
+    for _ in 0..4 {
+        let buf: [u8; 4] = [LED1 | LED3, 0x00, 0x00, 0x00];
+        write_mem(handle, timeout, addr, &buf).unwrap();
+        sleep(dur);
+        let buf: [u8; 4] = [LED2 | LED3, 0x00, 0x00, 0x00];
+        write_mem(handle, timeout, addr, &buf).unwrap();
+        sleep(dur);
+        let buf: [u8; 4] = [LED1 | LED2, 0x00, 0x00, 0x00];
+        write_mem(handle, timeout, addr, &buf).unwrap();
+        sleep(dur);
+        let buf: [u8; 4] = [LED1 | LED2 | LED3, 0x00, 0x00, 0x00];
+        write_mem(handle, timeout, addr, &buf).unwrap();
+        sleep(dur);
+    }
+}
+
+// TODO: clap (command line argument parser)
 fn main() {
-    let cmd = Command::Info;
+    let cmd = Command::LC_A311D_CC_Blink;
 
     println!("Searching for Amlogic USB devices...");
     let dev = rusb::devices()
@@ -229,6 +289,11 @@ fn main() {
         println!("Product string: {p}");
     }
 
+    if pid == USB_PID_S905X4 {
+        password_test(&handle, timeout);
+        return;
+    }
+
     // TODO: write_mem, toggle some GPIO / LED on VIM1
     match cmd {
         Command::Nop => {
@@ -245,11 +310,18 @@ fn main() {
         Command::ReadMem => {
             read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
         }
-        Command::WriteMem => {
+        Command::Vim1_Blink => {
             vim1_blink(&handle, timeout);
         }
+        Command::LC_A311D_CC_Blink => {
+            lc_a311d_cc_blink(&handle, timeout);
+        }
+        Command::WriteMem => {
+            // TODO: pass on hex-encoded value from CLI args
+        }
         Command::Password => {
-            password(&handle, timeout);
+            let pw: [u8; 64] = [0xff; 64];
+            password(&handle, timeout, &pw);
         }
         Command::Fastboot => {
             tpl_cmd(&handle, timeout, "fastboot");
