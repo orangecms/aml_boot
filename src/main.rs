@@ -230,7 +230,7 @@ fn lc_a311d_cc_blink(handle: &Handle, timeout: Duration) {
     let addr = PREG_PAD_GPIO2_EN as u32;
     let buf: [u8; 4] = [0b0011_0111, 0xff, 0xff, 0xff];
     write_mem(handle, timeout, addr, &buf).unwrap();
-    println!("Blink the SYS LED on Khadas VIM1");
+    println!("Blink the LEDs on Libre Computer AML-A311D-CC");
     let addr = PREG_PAD_GPIO2_O as u32;
     let dur = Duration::from_millis(300);
     for _ in 0..4 {
