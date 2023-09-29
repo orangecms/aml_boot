@@ -33,8 +33,12 @@ struct Args {
     cmd: Command,
 
     /// Number of times to greet
-    #[arg(short, long, default_value_t = 1)]
-    val: u8,
+    #[arg(short, long, default_value_t = 0, value_parser=clap_num::maybe_hex::<u32>)]
+    addr: u32,
+
+    /// Number of times to greet
+    #[arg(short, long, default_value_t = 0, value_parser=clap_num::maybe_hex::<u32>)]
+    val: u32,
 }
 
 fn main() {
@@ -92,8 +96,20 @@ fn main() {
             println!();
         }
         Command::ReadMem => {
+            let a = args.addr;
+            let v = args.val as u8;
+            let v = protocol::read_mem(&handle, timeout, a, v).unwrap();
+        }
+        Command::WriteMem => {
+            let a = args.addr;
+            let v: [u8; 4] = unsafe { std::mem::transmute(args.val.to_le()) };
+            protocol::write_mem(&handle, timeout, a, &v).unwrap();
+        }
+        /* TODO
+        Command::FBTest => {
             protocol::read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
         }
+        */
         Command::Vim1_Blink => {
             blinky::vim1_blink(&handle, timeout);
         }
@@ -102,9 +118,6 @@ fn main() {
         }
         Command::LC_S905D3_CC_Blink => {
             blinky::lc_s905d3_cc_blink(&handle, timeout);
-        }
-        Command::WriteMem => {
-            // TODO: pass on hex-encoded value from CLI args
         }
         Command::Password => {
             let pw: [u8; 64] = [0xff; 64];
