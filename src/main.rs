@@ -15,6 +15,7 @@ const FB_ADDR: u32 = 0x7f80_0000;
 enum Command {
     Nop,
     Info,
+    ChipInfo,
     ReadMem,
     WriteMem,
     Vim1_Blink,
@@ -90,6 +91,11 @@ fn main() {
         Command::Nop => {
             protocol::nop(&handle, timeout);
         }
+        Command::ChipInfo => {
+            println!("\n=======\n");
+            protocol::chip_info(&handle, timeout);
+            println!();
+        }
         Command::Info => {
             println!("\n=======\n");
             protocol::info(&handle, timeout);
@@ -97,12 +103,15 @@ fn main() {
         }
         Command::ReadMem => {
             let a = args.addr;
-            let v = args.val as u8;
-            let v = protocol::read_mem(&handle, timeout, a, v).unwrap();
+            let n = args.val as u8;
+            protocol::nop(&handle, timeout);
+            protocol::read_mem(&handle, timeout, a, n).unwrap();
+            // println!("{v:?}");
         }
         Command::WriteMem => {
             let a = args.addr;
-            let v: [u8; 4] = unsafe { std::mem::transmute(args.val.to_le()) };
+            let v: [u8; 4] = args.val.to_le().to_ne_bytes();
+            protocol::nop(&handle, timeout);
             protocol::write_mem(&handle, timeout, a, &v).unwrap();
         }
         /* TODO

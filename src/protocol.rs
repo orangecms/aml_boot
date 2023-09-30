@@ -28,6 +28,7 @@ const REQ_WRITE_MEM: u8 = 0x01;
 const REQ_READ_MEM: u8 = 0x02;
 
 const REQ_IDENTIFY_HOST: u8 = 0x20;
+const REQ_CHIPINFO: u8 = 0x40;
 
 const REQ_TPL_CMD: u8 = 0x30;
 const REQ_PASSWORD: u8 = 0x35;
@@ -50,6 +51,60 @@ fn int_to_bool_str(v: u8) -> &'static str {
     match v {
         1 => "yes",
         _ => "no",
+    }
+}
+
+fn print_64u8_as_16u32(buf: &[u8; 64]) {
+    let v: &mut Vec<u32> = &mut Vec::new();
+    for i in 0..16 {
+        let r = u32::from_le_bytes(buf[i * 4..(i * 4 + 4)].try_into().unwrap());
+        v.push(r);
+    }
+    for i in 0..4 {
+        println!(
+            "{:08x?} {:08x?} {:08x?} {:08x?}",
+            v[i * 4],
+            v[i * 4 + 1],
+            v[i * 4 + 2],
+            v[i * 4 + 3]
+        );
+    }
+}
+
+pub fn chip_info(handle: &Handle, timeout: Duration) {
+    println!("Read chip information\n");
+    let mut buf = [0u8; 64];
+    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x0, &mut buf, timeout) {
+        Ok(_) => {
+            println!("INDX");
+            print_64u8_as_16u32(&buf);
+            println!();
+        }
+        Err(e) => println!("chip_info err: {e:?}"),
+    }
+    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x1, &mut buf, timeout) {
+        Ok(_) => {
+            println!("CHIP");
+            print_64u8_as_16u32(&buf);
+            println!();
+        }
+        Err(e) => println!("chip_info err: {e:?}"),
+    }
+    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x2, &mut buf, timeout) {
+        Ok(_) => {
+            println!("OPS_");
+            print_64u8_as_16u32(&buf);
+            println!();
+        }
+        Err(e) => println!("chip_info err: {e:?}"),
+    }
+    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x3, &mut buf, timeout) {
+        Ok(_) => {
+            println!("ROM version");
+            print_64u8_as_16u32(&buf);
+            println!();
+        }
+        Err(e) => println!("chip_info err: {e:?}"),
     }
 }
 
@@ -85,7 +140,12 @@ pub fn info(handle: &Handle, timeout: Duration) {
 }
 
 // We can read max. 64 bytes at a time.
-pub fn read_mem(handle: &Handle, timeout: Duration, addr: u32, size: u8) -> Result<(), &'static str> {
+pub fn read_mem(
+    handle: &Handle,
+    timeout: Duration,
+    addr: u32,
+    size: u8,
+) -> Result<(), &'static str> {
     let addr_l = addr as u16;
     let addr_h = (addr >> 16) as u16;
     println!("read memory @{addr_h:04x}{addr_l:04x}");
