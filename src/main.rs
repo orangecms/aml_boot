@@ -104,14 +104,12 @@ fn main() {
         Command::ReadMem => {
             let a = args.addr;
             let n = args.val as u8;
-            protocol::nop(&handle, timeout);
             protocol::read_mem(&handle, timeout, a, n).unwrap();
             // println!("{v:?}");
         }
         Command::WriteMem => {
             let a = args.addr;
-            let v: [u8; 4] = args.val.to_le().to_ne_bytes();
-            protocol::nop(&handle, timeout);
+            let v = args.val.to_le().to_ne_bytes();
             protocol::write_mem(&handle, timeout, a, &v).unwrap();
         }
         /* TODO
@@ -129,7 +127,7 @@ fn main() {
             blinky::lc_s905d3_cc_blink(&handle, timeout);
         }
         Command::Password => {
-            let pw: [u8; 64] = [0xff; 64];
+            let pw = [0xffu8; 64];
             protocol::password(&handle, timeout, &pw);
         }
         Command::Fastboot => {

@@ -62,7 +62,7 @@ fn print_64u8_as_16u32(buf: &[u8; 64]) {
     }
     for i in 0..4 {
         println!(
-            "{:08x?} {:08x?} {:08x?} {:08x?}",
+            "    {:08x?} {:08x?} {:08x?} {:08x?}",
             v[i * 4],
             v[i * 4 + 1],
             v[i * 4 + 2],
@@ -71,41 +71,30 @@ fn print_64u8_as_16u32(buf: &[u8; 64]) {
     }
 }
 
+// Read and dump chip info at index n.
+pub fn chip_info_n(handle: &Handle, timeout: Duration, index: u16) {
+    let mut buf = [0u8; 64];
+    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, index, &mut buf, timeout) {
+        Ok(_) => print_64u8_as_16u32(&buf),
+        Err(e) => println!("chip_info err: {e:?}"),
+    }
+}
+
+// Read and dump all four chip info blocks.
 pub fn chip_info(handle: &Handle, timeout: Duration) {
     println!("Read chip information\n");
-    let mut buf = [0u8; 64];
-    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x0, &mut buf, timeout) {
-        Ok(_) => {
-            println!("INDX");
-            print_64u8_as_16u32(&buf);
-            println!();
-        }
-        Err(e) => println!("chip_info err: {e:?}"),
-    }
-    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x1, &mut buf, timeout) {
-        Ok(_) => {
-            println!("CHIP");
-            print_64u8_as_16u32(&buf);
-            println!();
-        }
-        Err(e) => println!("chip_info err: {e:?}"),
-    }
-    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x2, &mut buf, timeout) {
-        Ok(_) => {
-            println!("OPS_");
-            print_64u8_as_16u32(&buf);
-            println!();
-        }
-        Err(e) => println!("chip_info err: {e:?}"),
-    }
-    match handle.read_control(REQ_TYPE_AMLIN, REQ_CHIPINFO, 0x0, 0x3, &mut buf, timeout) {
-        Ok(_) => {
-            println!("ROM version");
-            print_64u8_as_16u32(&buf);
-            println!();
-        }
-        Err(e) => println!("chip_info err: {e:?}"),
-    }
+    println!("- INDX");
+    chip_info_n(handle, timeout, 0x0);
+    println!();
+    println!("- CHIP");
+    chip_info_n(handle, timeout, 0x1);
+    println!();
+    println!("- OPS_");
+    chip_info_n(handle, timeout, 0x2);
+    println!();
+    println!("- ROM version");
+    chip_info_n(handle, timeout, 0x3);
+    println!();
 }
 
 pub fn info(handle: &Handle, timeout: Duration) {
