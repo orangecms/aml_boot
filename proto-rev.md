@@ -167,6 +167,9 @@ So let's see and apply our knowledge! (`!` and `>` are annotations)
 
 => `gdb ./update`
 
+NOTE: This is an enhanced GDB with extra tooling to print the processor state,
+[`gdb-gef`](https://guyinatuxedo.github.io/02-intro_tooling/gdb-gef/index.html).
+
 - set breakpoint: `break usb_control_msg@plt`
 - `run chipinfo 1`
 
