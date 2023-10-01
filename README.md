@@ -30,7 +30,7 @@ You can work on the code and directly run it to see if your changes work, e.g.:
 cargo run --release -- -c info
 ```
 
-Note the `--` to escape from Caro.
+Note the `--` to escape from Cargo.
 
 TODO: switch to a sub command style at some point.
 
@@ -59,15 +59,15 @@ Look at [proto-rev.md](proto-rev.md) for notes on previous and our work.
 So, there _is_ now a newer protocol, as people write.
 
 [Sean Hoyt](https://twitter.com/Deadman_Android/status/1505570226540355592)
-writes (Mar 20, 2022):
+(Mar 20, 2022):
 
 > As with all newer amlogic soc's it now uses "Amlogic DNL" for it's flashing
 > instead of the older World cup update tool. The button on the board can take
 > you to fastboot/recovery or USB burn mode. Currently it is not bootloader
 > unlockable.
 
-[Previous post in thread (with photos)]
-(https://twitter.com/Deadman_Android/status/1505570224531247105):
+[Previous post in thread (with photos)](
+https://twitter.com/Deadman_Android/status/1505570224531247105):
 
 > T-Mobile TVision Hub 2nd gen board pics and general info. Specs: Amlogic
 > S905Y4, 2gb of ram (Rayson RS512M32), 8gb emmc 5.1 (Samsung KLM8G1GETF-B041)
