@@ -14,8 +14,11 @@ const FB_ADDR: u32 = 0x7f80_0000;
 #[derive(Clone, Debug, ValueEnum)]
 enum Command {
     Nop,
+    ChipGen,
     Info,
     ChipInfo,
+    ChipId,
+    PowerStates,
     ReadMem,
     WriteMem,
     Vim1_Blink,
@@ -91,14 +94,29 @@ fn main() {
         Command::Nop => {
             protocol::nop(&handle, timeout);
         }
-        Command::ChipInfo => {
+        Command::ChipGen => {
             println!("\n=======\n");
-            protocol::chip_info(&handle, timeout);
+            protocol::chip_gen(&handle, timeout);
             println!();
         }
         Command::Info => {
             println!("\n=======\n");
             protocol::info(&handle, timeout);
+            println!();
+        }
+        Command::ChipInfo => {
+            println!("\n=======\n");
+            protocol::chip_info(&handle, timeout);
+            println!();
+        }
+        Command::ChipId => {
+            println!("\n=======\n");
+            protocol::chip_id(&handle, timeout);
+            println!();
+        }
+        Command::PowerStates => {
+            println!("\n=======\n");
+            protocol::power_states(&handle, timeout);
             println!();
         }
         Command::ReadMem => {
