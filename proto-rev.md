@@ -7,6 +7,8 @@ The following assembly excerpts are `objdump`ed from the vendor tool `update`;
 specifically, commit hash `79e367b56cc203895350a436fae48e0c02bcf0a0` from
 <https://github.com/althafvly/aml-flash-tool>.
 
+The commands have been run on a Libre Computer AML-S905D3-CC SBC.
+
 ## First look
 
 The vendor tool uses `libusb`, as we can see via `ldd update`:
@@ -58,6 +60,17 @@ ChipID is:0x505046363434080000060a01
 
 That is what we already have, too.
 
+XXX: The first bytes would be ASCII `PPF644`. Does that mean anything?
+
+VIM1:
+
+```
+AmlUsbIdentifyHost
+This firmware version is 2-4-0-0
+[update]idVer is 0x204
+ChipID is:0xe32fb7d6d372b6d81ae914ac
+```
+
 ### `update chipinfo`
 
 ```
@@ -87,7 +100,7 @@ Note: The first 4 bytes look like ASCII characters. They are in reverse order
 00000030: 00000000 00000000 00000000 00000000
 ```
 
-second row bytes 4-15 are chip ID
+In the second row, bytes 4-15 are the chip ID.
 
 #### `update chipinfo 2` (OPS_)
 
@@ -97,6 +110,8 @@ second row bytes 4-15 are chip ID
 00000020: 00017201 36465050 00083434 010a0600
 00000030: 2298fa40 80068091 7ea9aa01 300016a9
 ```
+
+In the third row, bytes 4-15 are the chip ID.
 
 #### `update chipinfo 3` (ROMV)
 
@@ -228,7 +243,7 @@ Educated guess: `rbx` and `rcx` make up the argument.
 
 | reg | val  |                           |
 | --- | ---- | ------------------------- |
-| rbx | 0x01 | argument low double byte  |
+| r8  | 0x01 | argument low double byte  |
 | rcx | 0x00 | argument high double byte |
 | rdx | 0x40 | bRequest (get chip info)  |
 | rsi | 0xc0 | bmRequestType (data in)   |
