@@ -82,7 +82,7 @@ Corresponding talk by Neil Armstrong at ELC Europe 2021:
 
 > U-Boot: Porting and Maintaining a Bootloader for a Multimedia SoC Family
 
-## Procol versions
+## Protocol versions
 
 So, there _is_ now a newer protocol, as people write.
 
