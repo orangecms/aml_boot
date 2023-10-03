@@ -1,6 +1,25 @@
 # Amlogic Boot Tool
 
-See https://github.com/superna9999/pyamlboot for reference.
+This tool talks to Amlogic's mask ROM loader over USB.
+
+## Accessing the loader
+
+Many SBCs have a button to press on power-on to enter the loader mode. Some
+products may come with a button as well or require entering certain commands
+into the stock bootloader. We have found them to be an inconsistent mess. 🤷
+
+## Compatibility
+
+SoCs up to generation 3 (S905X, S905X2, S905{X,Y,D}3, etc) should be supported.
+Those show as product string "GX-CHIP".
+
+On some platforms, the commands may (partially) not work or behave different.
+
+**NOTE: Since the protocols are not public, we had to find our ways.
+Contributions and opening issues are welcome.**
+
+For details, see the sections on [how we got there](#how-we-got-there) and the
+[protocol versions](#protocol-versions).
 
 ## Building
 
@@ -53,6 +72,15 @@ aml_boot -c lc-a311d-cc-blink
 Note that other authors have already done a lot and documented their findings.
 Big kudos to Neil Armstrong and others who did all the hard work before us. :)
 Look at [proto-rev.md](proto-rev.md) for notes on previous and our work.
+
+### Previous work
+
+See <https://github.com/superna9999/pyamlboot> for reference.
+
+Corresponding talk by Neil Armstrong at ELC Europe 2021:
+<https://www.youtube.com/watch?v=u0-swEMDFp0>
+
+> U-Boot: Porting and Maintaining a Bootloader for a Multimedia SoC Family
 
 ## Procol versions
 
