@@ -1,17 +1,35 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::time::Duration;
 
 mod blinky;
 mod protocol;
 
 const USB_VID_AMLOGIC: u16 = 0x1b8e;
-const USB_PID_S905X3: u16 = 0xc003;
-const USB_PID_S905X4: u16 = 0xc004;
+const USB_PID_GX_CHIP: u16 = 0xc003;
+const USB_PID_AML_DNL: u16 = 0xc004;
+
 /* Memory addresses */
 // This is on a TV box based on S905X4
-const FB_ADDR: u32 = 0x7f80_0000;
+// const FB_ADDR: u32 = 0x7f80_0000;
 
-#[derive(Clone, Debug, ValueEnum)]
+#[allow(non_camel_case_types)]
+#[derive(ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]
+enum Board {
+    Khadas_Vim1,
+    LC_A311D_CC,
+    LC_S905D3_CC,
+}
+
+impl std::fmt::Display for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
+}
+
+#[derive(Debug, Subcommand)]
 enum Command {
     Nop,
     ChipGen,
@@ -19,35 +37,38 @@ enum Command {
     ChipInfo,
     ChipId,
     PowerStates,
-    ReadMem,
-    WriteMem,
-    Vim1_Blink,
-    LC_A311D_CC_Blink,
-    LC_S905D3_CC_Blink,
+    ReadMem {
+        #[arg(index = 1, value_parser=clap_num::maybe_hex::<u32>)]
+        address: u32,
+
+        #[arg(index = 2, default_value_t = 4)]
+        count: u8,
+    },
+    WriteMem {
+        #[arg(index = 1, value_parser=clap_num::maybe_hex::<u32>)]
+        address: u32,
+
+        #[arg(index = 2, value_parser=clap_num::maybe_hex::<u32>)]
+        value: u32,
+    },
+    Blinky {
+        board: Board,
+    },
     Password,
     Fastboot,
 }
 
-/// Simple program to greet a person
+/// Amlogic mask ROM loader tool
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-struct Args {
+struct Cli {
     /// Command to run
-    #[arg(short, long)]
+    #[command(subcommand)]
     cmd: Command,
-
-    /// Number of times to greet
-    #[arg(short, long, default_value_t = 0, value_parser=clap_num::maybe_hex::<u32>)]
-    addr: u32,
-
-    /// Number of times to greet
-    #[arg(short, long, default_value_t = 0, value_parser=clap_num::maybe_hex::<u32>)]
-    val: u32,
 }
 
 fn main() {
-    let args = Args::parse();
-    let cmd = args.cmd;
+    let cmd = Cli::parse().cmd;
 
     println!("Searching for Amlogic USB devices...");
     let dev = rusb::devices()
@@ -58,14 +79,14 @@ fn main() {
             let vid = des.vendor_id();
             let pid = des.product_id();
 
-            vid == USB_VID_AMLOGIC && (pid == USB_PID_S905X3 || pid == USB_PID_S905X4)
+            vid == USB_VID_AMLOGIC && (pid == USB_PID_GX_CHIP || pid == USB_PID_AML_DNL)
         })
         .expect("Cannot find Amlogic USB device");
     let des = dev.device_descriptor().unwrap();
     let vid = des.vendor_id();
     let pid = des.product_id();
 
-    let s_type = if pid == USB_PID_S905X3 {
+    let s_type = if pid == USB_PID_GX_CHIP {
         "S905X, S905X2 or S905X3"
     } else {
         "S905X4"
@@ -85,7 +106,7 @@ fn main() {
         println!("Product string: {p}");
     }
 
-    if pid == USB_PID_S905X4 {
+    if pid == USB_PID_AML_DNL {
         protocol::password_test(&handle, timeout);
         return;
     }
@@ -119,31 +140,25 @@ fn main() {
             protocol::power_states(&handle, timeout);
             println!();
         }
-        Command::ReadMem => {
-            let a = args.addr;
-            let n = args.val as u8;
-            protocol::read_mem(&handle, timeout, a, n).unwrap();
+        Command::ReadMem { address, count } => {
+            protocol::read_mem(&handle, timeout, address, count).unwrap();
             // println!("{v:?}");
         }
-        Command::WriteMem => {
-            let a = args.addr;
-            let v = args.val.to_le().to_ne_bytes();
-            protocol::write_mem(&handle, timeout, a, &v).unwrap();
+        Command::WriteMem { address, value } => {
+            let v = value.to_le().to_ne_bytes();
+            println!("{address:x}  {value:x}");
+            protocol::write_mem(&handle, timeout, address, &v).unwrap();
         }
         /* TODO
         Command::FBTest => {
             protocol::read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
         }
         */
-        Command::Vim1_Blink => {
-            blinky::vim1_blink(&handle, timeout);
-        }
-        Command::LC_A311D_CC_Blink => {
-            blinky::lc_a311d_cc_blink(&handle, timeout);
-        }
-        Command::LC_S905D3_CC_Blink => {
-            blinky::lc_s905d3_cc_blink(&handle, timeout);
-        }
+        Command::Blinky { board } => match board {
+            Board::Khadas_Vim1 => blinky::vim1_blink(&handle, timeout),
+            Board::LC_A311D_CC => blinky::lc_a311d_cc_blink(&handle, timeout),
+            Board::LC_S905D3_CC => blinky::lc_s905d3_cc_blink(&handle, timeout),
+        },
         Command::Password => {
             let pw = [0xffu8; 64];
             protocol::password(&handle, timeout, &pw);

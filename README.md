@@ -46,12 +46,10 @@ This will print help on the CLI usage.
 You can work on the code and directly run it to see if your changes work, e.g.:
 
 ```sh
-cargo run --release -- -c info
+cargo run --release -- info
 ```
 
 Note the `--` to escape from Cargo.
-
-TODO: switch to a sub command style at some point.
 
 ## How we got there
 
@@ -66,7 +64,8 @@ Computer S905D3-CC.
 The Khadas VIM1 and Libre Computer A311D-CC work fine, e.g., blinky demo:
 
 ```sh
-aml_boot -c lc-a311d-cc-blink
+aml_boot blinky khadas-vim1
+aml_boot blinky lc-a311d-cc
 ```
 
 Note that other authors have already done a lot and documented their findings.

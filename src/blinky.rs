@@ -59,13 +59,13 @@ pub fn vim1_blink(h: &Handle, t: Duration) {
         sleep(dur);
         if false {
             // initial values: 0xff 0xff 0xff 0xff
-            let v = read_reg(h, t, z).unwrap();
+            // let v = read_reg(h, t, z).unwrap();
             // let v = [v[0], v[1] & 0b1111_0011, v[2], v[3]];
-            let v = [v[0], 0, v[2], v[3]];
+            // let v = [v[0], 0, v[2], v[3]];
             let v = [0, 0, 0, 0];
             write_mem(h, t, z, &v).unwrap();
             sleep(dur);
-            let v = read_reg(h, t, z).unwrap();
+            // let v = read_reg(h, t, z).unwrap();
             // let v = [v[0], v[1] | 0b0000_1100, v[2], v[3]];
             let v = [0xff, 0xff, 0xff, 0xff];
             write_mem(h, t, z, &v).unwrap();
