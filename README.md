@@ -77,10 +77,13 @@ Look at [proto-rev.md](proto-rev.md) for notes on previous and our work.
 
 See <https://github.com/superna9999/pyamlboot> for reference.
 
-Corresponding talk by Neil Armstrong at ELC Europe 2021:
+Corresponding talk by Neil Armstrong at Embedded Linux Conference Europe 2020:
 <https://www.youtube.com/watch?v=u0-swEMDFp0>
 
 > U-Boot: Porting and Maintaining a Bootloader for a Multimedia SoC Family
+
+Slides:
+<https://elinux.org/images/e/ef/ELC-E_2020_U-Boot_porting_and_maintaining_a_bootloader_for_a_multimedia_SoC_family.pdf>
 
 ## Protocol versions
 
