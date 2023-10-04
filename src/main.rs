@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
+use std::io::Write;
 use std::time::Duration;
 
 mod blinky;
@@ -7,6 +8,7 @@ mod protocol;
 const USB_VID_AMLOGIC: u16 = 0x1b8e;
 const USB_PID_GX_CHIP: u16 = 0xc003;
 const USB_PID_AML_DNL: u16 = 0xc004;
+const USB_PID_GADGET: u16 = 0xfada;
 
 /* Memory addresses */
 // This is on a TV box based on S905X4
@@ -51,11 +53,24 @@ enum Command {
         #[arg(index = 2, value_parser=clap_num::maybe_hex::<u32>)]
         value: u32,
     },
+    Dump {
+        file_name: String,
+    },
     Blinky {
         board: Board,
     },
+    Shell {
+        cmd: String,
+    },
+    Tpl {
+        cmd: String,
+    },
     Password,
     Fastboot,
+    BruteForceCmds {
+        #[arg(index = 1, default_value = "")]
+        yolo: String,
+    },
 }
 
 /// Amlogic mask ROM loader tool
@@ -79,12 +94,19 @@ fn main() {
             let vid = des.vendor_id();
             let pid = des.product_id();
 
-            vid == USB_VID_AMLOGIC && (pid == USB_PID_GX_CHIP || pid == USB_PID_AML_DNL)
+            vid == USB_VID_AMLOGIC
+                && matches!(pid, USB_PID_GX_CHIP | USB_PID_AML_DNL | USB_PID_GADGET)
         })
         .expect("Cannot find Amlogic USB device");
+
     let des = dev.device_descriptor().unwrap();
     let vid = des.vendor_id();
     let pid = des.product_id();
+
+    if pid == USB_PID_GADGET {
+        println!("Device is in gadget/download mode.");
+        return;
+    }
 
     let s_type = if pid == USB_PID_GX_CHIP {
         "S905X, S905X2 or S905X3"
@@ -149,6 +171,15 @@ fn main() {
             println!("{address:x}  {value:x}");
             protocol::write_mem(&handle, timeout, address, &v).unwrap();
         }
+        Command::Dump { file_name } => {
+            let res = protocol::dump(&handle, timeout, 0, 0);
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(file_name)
+                .unwrap();
+            file.write_all(&res).unwrap();
+        }
         /* TODO
         Command::FBTest => {
             protocol::read_mem(&handle, timeout, FB_ADDR, 64).unwrap();
@@ -159,12 +190,24 @@ fn main() {
             Board::LC_A311D_CC => blinky::lc_a311d_cc_blink(&handle, timeout),
             Board::LC_S905D3_CC => blinky::lc_s905d3_cc_blink(&handle, timeout),
         },
+        Command::Shell { cmd } => {
+            protocol::bulk_cmd(&handle, timeout, &cmd);
+        }
+        Command::Tpl { cmd } => {
+            protocol::tpl_cmd(&handle, timeout, &cmd);
+        }
         Command::Password => {
             let pw = [0xffu8; 64];
             protocol::password(&handle, timeout, &pw);
         }
         Command::Fastboot => {
             protocol::tpl_cmd(&handle, timeout, "fastboot");
+        }
+        Command::BruteForceCmds { yolo } => {
+            if !yolo.eq("YOLO") {
+                panic!("Run 'brute-force-cmds YOLO' if you really want this, be careful!");
+            }
+            protocol::brute_force_cmds(&handle, timeout);
         }
     }
 }
