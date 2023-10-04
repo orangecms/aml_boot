@@ -29,6 +29,11 @@ Have a Rust toolchain installed with Cargo.
 cargo build --release
 ```
 
+## Preparation
+
+You need to have udev rules for Amlogic devices installed to access them as a
+regular user. Copy `70-amlogic.rules` into `/etc/udev/rules.d/`.
+
 ## Usage
 
 ```
@@ -83,6 +88,12 @@ Corresponding talk by Neil Armstrong at Embedded Linux Conference Europe 2020:
 
 Slides:
 <https://elinux.org/images/e/ef/ELC-E_2020_U-Boot_porting_and_maintaining_a_bootloader_for_a_multimedia_SoC_family.pdf>
+
+Frederic B has dumped the S905D3 mask ROM and found vulnerabilities.
+
+<https://fredericb.info/2021/02/dump-amlogic-s905d3-bootrom-from-khadas-vim3l-board.html>
+
+<https://fredericb.info/2021/02/amlogic-usbdl-unsigned-code-loader-for-amlogic-bootrom.html>
 
 ## Protocol versions
 
