@@ -39,6 +39,8 @@ enum Command {
     ChipInfo,
     ChipId,
     PowerStates,
+    /// Read a 32-bit value from memory
+    #[clap(verbatim_doc_comment)]
     ReadMem {
         #[arg(index = 1, value_parser=clap_num::maybe_hex::<u32>)]
         address: u32,
@@ -46,6 +48,8 @@ enum Command {
         #[arg(index = 2, default_value_t = 4)]
         count: u8,
     },
+    /// Write a 32-bit value to memory
+    #[clap(verbatim_doc_comment)]
     WriteMem {
         #[arg(index = 1, value_parser=clap_num::maybe_hex::<u32>)]
         address: u32,
@@ -53,7 +57,25 @@ enum Command {
         #[arg(index = 2, value_parser=clap_num::maybe_hex::<u32>)]
         value: u32,
     },
+    /// Dump SRAM to file (S905D3 only for now)
+    #[clap(verbatim_doc_comment)]
     Dump {
+        file_name: String,
+    },
+    /// Write file to SRAM (S905D3 only for now; must be multiple of 64 bytes)
+    #[clap(verbatim_doc_comment)]
+    Write {
+        file_name: String,
+    },
+    /// Execute code at memory address
+    #[clap(verbatim_doc_comment)]
+    Exec {
+        #[arg(index = 1, value_parser=clap_num::maybe_hex::<u32>)]
+        address: u32,
+    },
+    /// Write file to SRAM and execute (S905D3 only for now, needs header)
+    #[clap(verbatim_doc_comment)]
+    Run {
         file_name: String,
     },
     Blinky {
@@ -172,13 +194,29 @@ fn main() {
             protocol::write_mem(&handle, timeout, address, &v).unwrap();
         }
         Command::Dump { file_name } => {
-            let res = protocol::dump(&handle, timeout, 0, 0);
+            let addr = protocol::S905D3_AHB_SRAM_BASE;
+            let size = 64 * 1024; // 64k
+            let res = protocol::dump(&handle, timeout, addr, size);
             let mut file = std::fs::OpenOptions::new()
                 .create(true)
                 .write(true)
                 .open(file_name)
                 .unwrap();
             file.write_all(&res).unwrap();
+        }
+        Command::Write { file_name } => {
+            let file = std::fs::read(file_name).unwrap();
+            let addr = protocol::S905D3_AHB_SRAM_BASE;
+            protocol::write(&handle, timeout, &file, addr);
+        }
+        Command::Exec { address } => {
+            protocol::exec(&handle, timeout, address).unwrap();
+        }
+        Command::Run { file_name } => {
+            let file = std::fs::read(file_name).unwrap();
+            let addr = protocol::S905D3_AHB_SRAM_BASE;
+            protocol::write(&handle, timeout, &file, addr);
+            protocol::exec(&handle, timeout, addr).unwrap();
         }
         /* TODO
         Command::FBTest => {

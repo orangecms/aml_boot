@@ -3,6 +3,8 @@ use std::time::Duration;
 // keeping it short :)
 pub type Handle = rusb::DeviceHandle<rusb::GlobalContext>;
 
+const DEBUG: bool = false;
+
 // from https://dn.odroid.com/S905/DataSheet/S905_Public_Datasheet_V1.1.4.pdf
 // const SYS_AHB_BASE: u32 = 0xC800_0000;
 // FIXME: Not working on S905X, taken from pyamlboot PROTOCOL.md
@@ -21,7 +23,7 @@ const S905X_CPU_POWER_STATE: u32 = 0xc810_00e0;
 // 0xffff_0000 - 0xffff_ffff is the mask ROM (64k).
 // 0xfffa_0000 - 0xfffe_7fff is the AHB SRAM (256k + 32k).
 // We can read the first 64k only. Maybe it is only 64k after all.
-const S905D3_AHB_SRAM_BASE: u32 = 0xfffa_0000;
+pub const S905D3_AHB_SRAM_BASE: u32 = 0xfffa_0000;
 
 /* Request types - just one per direction */
 // see https://vovkos.github.io/doxyrest/samples/libusb-sphinxdoc/enum_libusb_endpoint_direction.html#doxid-group-libusb-desc-1ga86c880af878493aa8f805c2aba654b8b
@@ -36,6 +38,8 @@ const REQ_CHIP_GEN: u8 = 0x12;
 /* Actual commands */
 const REQ_WRITE_MEM: u8 = 0x01;
 const REQ_READ_MEM: u8 = 0x02;
+
+const REQ_RUN: u8 = 0x05;
 
 const REQ_IDENTIFY_HOST: u8 = 0x20;
 // NOTE: This appears to not exist on the S905X, so it behaves as REQ_CHIP_GEN.
@@ -129,8 +133,6 @@ fn vu32_to_vu8(v: Vec<u32>) -> Vec<u8> {
 pub fn dump(h: &Handle, t: Duration, addr: u32, size: u32) -> Vec<u8> {
     println!("Dump memory\n");
     let v: &mut Vec<u32> = &mut Vec::new();
-    let addr = S905D3_AHB_SRAM_BASE;
-    let size = 64 * 1024; // 64k
     for a in (addr..addr + size).step_by(64) {
         let r = read_block(h, t, a).unwrap();
         v.extend(r);
@@ -157,6 +159,22 @@ fn print_64u8_as_16u32(buf: &[u8; 64]) {
             v[i + 2],
             v[i + 3]
         );
+    }
+}
+
+pub fn write(h: &Handle, t: Duration, f: &Vec<u8>, addr: u32) {
+    if f.len() % 64 != 0 {
+        panic!("File size must be multiple of 64 bytes");
+    }
+    let blocks = f.len() / 64;
+    let mut buf = [0u8; 64];
+    for i in 0..blocks {
+        let offs = i * 64;
+        let v = &f[offs..offs + 64];
+        buf.clone_from_slice(v);
+        let c = conv_64u8_as_16u32(&buf);
+        let v = vu32_to_vu8(c.to_vec());
+        write_mem(h, t, addr + offs as u32, &v).unwrap();
     }
 }
 
@@ -250,7 +268,9 @@ pub fn read_mem(h: &Handle, t: Duration, addr: u32, size: u8) -> Result<(), Stri
     }
     let addr_l = addr as u16;
     let addr_h = (addr >> 16) as u16;
-    println!("read memory @{addr_h:04x}{addr_l:04x}");
+    if DEBUG {
+        println!("Read memory @{addr_h:04x}{addr_l:04x}");
+    }
     let mut buf = vec![0; size as usize];
     match h.read_control(REQ_TYPE_AMLIN, REQ_READ_MEM, addr_h, addr_l, &mut buf, t) {
         Ok(_) => {
@@ -269,16 +289,32 @@ pub fn write_reg(h: &Handle, t: Duration, addr: u32, val: u32) -> Result<(), Str
 pub fn write_mem(h: &Handle, t: Duration, addr: u32, buf: &[u8]) -> Result<(), String> {
     let addr_l = addr as u16;
     let addr_h = (addr >> 16) as u16;
-    println!("write to memory @{addr_h:04x}{addr_l:04x}");
+    if DEBUG {
+        println!("Write to memory @{addr_h:04x}{addr_l:04x}");
+    }
     if buf.len() > 64 {
         return Err("Memory write size is 64 max".to_string());
     }
     let b = vu32_to_vu8(u8_le_slice_to_u32_vec(buf));
     match h.write_control(REQ_TYPE_AMLOUT, REQ_WRITE_MEM, addr_h, addr_l, &b, t) {
         Ok(n) => {
-            println!("write_mem success, {n} bytes");
+            if DEBUG {
+                println!("write_mem success, {n} bytes");
+            }
         }
         Err(e) => println!("write_mem err: {e:?}"),
+    }
+    Ok(())
+}
+
+pub fn exec(h: &Handle, t: Duration, addr: u32) -> Result<(), String> {
+    let addr_l = addr as u16;
+    let addr_h = (addr >> 16) as u16;
+    println!("Execute code in memory @{addr_h:04x}{addr_l:04x}");
+    let b = vec![0; 4usize];
+    match h.write_control(REQ_TYPE_AMLOUT, REQ_RUN, addr_h, addr_l, &b, t) {
+        Ok(_) => println!("Executed successfully"),
+        Err(e) => println!("Execute error: {e:?}"),
     }
     Ok(())
 }
