@@ -111,8 +111,9 @@ const LED3: u32 = 1 << 7;
 // NOTE: This is all active low.
 pub fn lc_a311d_cc_blink(h: &Handle, t: Duration) {
     let addr = S905D3_PREG_PAD_GPIO2_EN as u32;
-    let val = (0b0011_0111 << 24) | 0x00ff_ffff;
-    write_reg(h, t, addr, val).unwrap();
+    let m = 0xffff_ff37;
+    let v = read_reg(h, t, addr).unwrap();
+    write_reg(h, t, addr, v & m).unwrap();
     println!("Blink the LEDs on Libre Computer AML-A311D-CC");
     let addr = S905D3_PREG_PAD_GPIO2_O as u32;
     let dur = Duration::from_millis(300);
@@ -136,8 +137,9 @@ pub fn lc_a311d_cc_blink(h: &Handle, t: Duration) {
 // errors with "NoDevice".
 pub fn lc_s905d3_cc_blink(h: &Handle, t: Duration) {
     let addr = S905D3_PREG_PAD_GPIO2_EN as u32;
-    let val = (0b0011_0111 << 24) | 0x00ff_ffff;
-    write_reg(h, t, addr, val).unwrap();
+    let m = 0xffff_ff37;
+    let v = read_reg(h, t, addr).unwrap();
+    write_reg(h, t, addr, v & m).unwrap();
     println!("Blink the LEDs on Libre Computer AML-S905D3-CC");
     let addr = S905D3_PREG_PAD_GPIO2_O as u32;
     let dur = Duration::from_millis(300);
